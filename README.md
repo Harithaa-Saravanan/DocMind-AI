@@ -12,58 +12,6 @@ DocMind is a self-hosted, private Retrieval-Augmented Generation (RAG) platform.
 
 ---
 
-## 🏗️ System Component Architecture
-
-graph TD
-    %% Styling
-    classDef pres fill:#2563eb,stroke:#1d4ed8,color:#fff,stroke-width:2px;
-    classDef api fill:#0d9488,stroke:#0f766e,color:#fff,stroke-width:2px;
-    classDef biz fill:#7c3aed,stroke:#6d28d9,color:#fff,stroke-width:2px;
-    classDef infra fill:#374151,stroke:#1f2937,color:#fff,stroke-width:2px;
-
-    subgraph Presentation_Layer [Presentation Layer]
-        ReactApp["React App (React + Vite)"]:::pres
-    end
-
-    subgraph API_Routing_Layer [API Routing Layer]
-        DocController["DocumentController (ASP.NET Core)"]:::api
-        ChatController["ChatController (ASP.NET Core)"]:::api
-    end
-
-    subgraph Business_Logic_Layer [Business Logic Layer]
-        DocIngest["DocumentIngestionService (iTextSharp)"]:::biz
-        RagChat["RagChatService (Semantic Kernel)"]:::biz
-        EmbedService["EmbeddingService (Semantic Kernel)"]:::biz
-    end
-
-    subgraph Integration_Data_Layer [Integration & Data Access Layer]
-        OllamaClient["OllamaClient (Semantic Kernel)"]:::biz
-        QdrantService["QdrantService (Qdrant.Client)"]:::biz
-    end
-
-    subgraph Infrastructure_Layer [Infrastructure Layer]
-        OllamaServer["Ollama Server (Local Host:11434)<br/>- llama3.2<br/>- nomic-embed-text"]:::infra
-        QdrantDB["Qdrant DB (Docker Port:6334)<br/>- Persistent Storage"]:::infra
-    end
-
-    %% Interactions
-    ReactApp -->|HTTP REST Port 5001| DocController
-    ReactApp -->|HTTP REST Port 5001| ChatController
-
-    DocController -->|C# Method Calls| DocIngest
-    ChatController -->|C# Method Calls| RagChat
-
-    DocIngest -->|C# Method Calls| EmbedService
-    RagChat -->|C# Method Calls| EmbedService
-    RagChat -->|C# Method Calls| OllamaClient
-
-    EmbedService -->|C# Method Calls| OllamaClient
-    DocIngest -->|C# Method Calls| QdrantService
-    RagChat -->|C# Method Calls| QdrantService
-
-    OllamaClient -->|HTTP Port 11434| OllamaServer
-    QdrantService -->|gRPC Port 6334| QdrantDB
-
 ### Technical Stack Component Registry
 
 | Component | Technology | Responsibility |
