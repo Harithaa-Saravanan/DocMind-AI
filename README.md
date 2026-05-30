@@ -9,7 +9,7 @@ DocMind is a self-hosted, private Retrieval-Augmented Generation (RAG) platform.
 ## 🚀 Key Value Propositions
 
 * **100% Data Sovereignty:** Every document text snippet, vector embedding calculation, and AI inference cycle stays entirely on your local machine. No third-party APIs (like OpenAI) are used.
-* **Zero Infrastructure Cost:** Built completely using free, open-source local models and framework engines.
+* **Zero Infrastructure Cost:** Built completely using free, open-source local models and native framework drivers.
 * **Traceable Answers:** Eliminates AI hallucinations by forcing the model to cite the exact source file and text segment it used to formulate its response.
 
 ---
@@ -21,12 +21,12 @@ DocMind is a self-hosted, private Retrieval-Augmented Generation (RAG) platform.
 | **React App** | React + Vite | User interface — upload files, display chat and source citations. |
 | **DocumentController** | ASP.NET Core | Handles file upload multipart HTTP requests. |
 | **ChatController** | ASP.NET Core | Handles question/answer prompt HTTP endpoints. |
-| **DocumentIngestionService** | C# + iTextSharp | Extracts raw text, orchestrates chunking, embeddings, and database pushes. |
-| **RagChatService** | C# + Semantic Kernel | Vectorizes user queries, fetches relevant text, constructs the system context prompt. |
-| **EmbeddingService** | Semantic Kernel | Interface mapping to convert textual blocks into numerical vector representations. |
-| **QdrantService** | Qdrant.Client | Direct database interface to map custom entities into Qdrant collection payloads. |
+| **DocumentIngestionService** | C# + UglyToad.PdfPig | Extracts raw text layout, orchestrates 500-character chunking with 50-character overlap. |
+| **RagChatService** | C# (Native RAG Engine) | Vectorizes user queries, fetches relevant text via gRPC, constructs strict system context prompts. |
+| **HttpClient** | System.Net.Http | Direct, high-performance JSON communication with the local Ollama API wrapper. |
+| **QdrantClient** | Qdrant.Client | Direct database interface driver to map native PointStruct payloads over gRPC channels. |
 | **Ollama (llama3.2)** | Ollama (Local) | Local text LLM that generates natural language answers strictly from context boundaries. |
-| **Ollama (nomic-embed-text)**| Ollama (Local) | Local text embedding generator (outputs 768-dimensional mathematical arrays). |
+| **Ollama (nomic-embed-text)**| Ollama (Local) | Local text embedding generator (outputs 768-dimensional mathematical vector arrays). |
 | **Qdrant** | Qdrant (Docker) | High-performance, persistent vector database server with native HNSW indexing. |
 
 ---
@@ -34,23 +34,23 @@ DocMind is a self-hosted, private Retrieval-Augmented Generation (RAG) platform.
 ## 🔄 Core Application Workflows
 
 ### Flow 1 — Document Ingestion (One-time Setup)
-1. **React:** User selects file. Axios posts file to `/api/documents/upload` via `FormData`.
-2. **DocumentController:** Receives and validates multipart request, hands to `DocumentIngestionService`.
-3. **DocumentIngestionService:** Extracts raw document strings using `iTextSharp`.
-4. **DocumentIngestionService:** Slices text into 500-token chunks with 50-token semantic overlap to preserve context across boundaries.
-5. **EmbeddingService:** Dispatches text chunks to local Ollama instance running `nomic-embed-text` (Free).
-6. **QdrantService:** Stores chunk text string, metadata (file name, page number), and vector arrays permanently.
-7. **DocumentController:** Confirms ingestion with a `200 OK` status, returning metadata arrays.
+1. **React:** User selects file. Axios posts file to `/api/document/upload` via `FormData`.
+2. **DocumentController:** Receives and validates multipart request, hands stream to `DocumentIngestionService`.
+3. **DocumentIngestionService:** Extracts raw document strings completely offline using `UglyToad.PdfPig`.
+4. **DocumentIngestionService:** Slices text layouts into 500-character windows with a 50-character sliding semantic overlap to preserve sentences across boundaries.
+5. **DocumentIngestionService:** Sends text strings directly via `HttpClient` to local Ollama running `nomic-embed-text` to compute vectors.
+6. **DocumentIngestionService:** Assembles native `PointStruct` elements and batch-upserts data vectors and metadata fields (filename, page) directly into the Qdrant container over gRPC.
+7. **DocumentController:** Confirms ingestion with a `200 OK` status, returning processing summary metadata.
 8. **React:** Appends document data to the sidebar registry.
 
 ### Flow 2 — Question Answering Loop (RAG)
 1. **React:** User submits question string to `/api/chat/ask`.
 2. **ChatController:** Validates structure, routes payload to `RagChatService`.
-3. **RagChatService:** Encodes user's question into a 768-dimension coordinate vector using local `nomic-embed-text`.
-4. **QdrantService:** Queries collection via cosine similarity match and retrieves the top 5 most relevant document chunks.
-5. **RagChatService:** Constructs augmented system prompt injection binding retrieved text blocks to strict operational rules.
-6. **Ollama (llama3.2):** Compiles the response based solely on the provided context limits.
-7. **RagChatService:** Pulls provenance parameters (File Name, Page) from vector block metadata arrays.
+3. **RagChatService:** Encodes user's question into a 768-dimension coordinate vector via `HttpClient` request to local `nomic-embed-text`.
+4. **RagChatService:** Executes native vector search using `QdrantClient.SearchAsync` to fetch the top 4 closest matching chunks.
+5. **RagChatService:** Extracts matching payloads, assembles user-facing provenance arrays, and glues the text blocks into a strict system context instruction prompt template.
+6. **RagChatService:** Dispatches the final context-grounded prompt template over to local `llama3.2` using a non-streaming HTTP connection payload.
+7. **RagChatService:** Packages the model’s literal response alongside source citations metadata (File Name, Page Number).
 8. **ChatController:** Returns structural JSON containing `{ answer, sources }`.
 9. **React:** Hydrates the UI with responsive bubbles containing clickable markdown source citations.
 
@@ -59,22 +59,18 @@ DocMind is a self-hosted, private Retrieval-Augmented Generation (RAG) platform.
 ## 🔌 API Specification
 
 ### Document Management
-* `POST /api/documents/upload` - Upload file object (`FormData`). Returns `{ id, name, chunks }`.
-* `GET /api/documents` - Fetches array listing available indexed files.
-* `DELETE /api/documents/{id}` - Drops target elements from the vector namespace.
+* `POST /api/document/upload` - Upload file object (`FormData`). Returns `{ message, fileName, chunksCreated }`.
 
 ### Conversation Loops
-* `POST /api/chat/ask` - Submits `{ question, conversationId }`. Returns `{ answer, sources: [{ documentName, pageNumber }] }`.
-* `GET /api/chat/history/{id}` - Returns historical array matching `{ role, content }` to preserve UI state.
-* `DELETE /api/chat/history/{id}` - Flushes active context state blocks.
-
+* `POST /api/chat/ask` - Submits `{ question, conversationId }`. Returns `{ answer, sources: [{ documentName, pageNumber, relevantExcerpt }] }`.
+* 
 ---
 
 ## 🔒 Security Configuration Standards
 
-* **Zero Key Leaks:** No cloud keys or variables live inside the client React build.
+* **Zero Key Leaks:** No cloud keys, environment tokens, or billing variables live inside the codebase.
 * **Encrypted Traffic Channels:** Local infrastructure maps direct connection bindings using native ASP.NET `UseHttpsRedirection` pipelines.
-* **Runtime File Validation:** Input controls strictly parse binary signatures (MIME) and constrain incoming file sizing to 15MB limits.
+* **Runtime File Validation:** Input controls strictly parse binary extensions and constrain incoming file uploads to clear safety limits.
 * **Zero Hallucination Prompts:** System prompts apply explicit negative boundary constraints ("If you cannot find the answer, reply only with 'I could not find relevant information in your documents'").
 
 ---
@@ -87,4 +83,3 @@ DocMind is a self-hosted, private Retrieval-Augmented Generation (RAG) platform.
    ```bash
    ollama pull llama3.2
    ollama pull nomic-embed-text
-3. Install Docker Desktop
