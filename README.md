@@ -4,7 +4,7 @@ DocMind is a self-hosted, private Retrieval-Augmented Generation (RAG) platform.
 
 ---
 # System Architecture
-![System Component Architecture](./Architecture diagram.png)
+![System Component Architecture](./Flow-diagram.png)
 
 ## 🚀 Key Value Propositions
 
