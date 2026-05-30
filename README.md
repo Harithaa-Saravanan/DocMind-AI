@@ -3,6 +3,8 @@
 DocMind is a self-hosted, private Retrieval-Augmented Generation (RAG) platform. It allows teams or individual users to upload business documents (like PDFs) and have natural, interactive conversations with that content securely, privately, and completely offline.
 
 ---
+# System Architecture
+![System Component Architecture](./Architecture diagram.png)
 
 ## 🚀 Key Value Propositions
 
