@@ -1,0 +1,5 @@
+@import "tailwindcss";
+
+/* This tells Tailwind v4 exactly where to scan for your component classes */
+@source "../index.html";
+@source "./**/*.{js,ts,jsx,tsx}";
